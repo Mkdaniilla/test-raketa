@@ -1,4 +1,4 @@
-﻿import pygame
+import pygame
 import sys
 import math
 import random
@@ -162,12 +162,39 @@ def draw_cosmodrome(frame_count):
 
 
 def draw_earth_in_space():
-    ex, ey, er = 680, 100, 36
-    pygame.draw.circle(screen, (30, 80, 180), (ex, ey), er)
-    pygame.draw.circle(screen, (50, 140, 70), (ex - 8, ey - 6), 14)
-    pygame.draw.circle(screen, (50, 140, 70), (ex + 10, ey + 12), 12)
-    pygame.draw.circle(screen, (220, 240, 255), (ex + 6, ey - 10), 10)
-    pygame.draw.circle(screen, (20, 20, 30), (ex + er - 6, ey), er, width=4)
+    ex, ey, er = 680, 95, 38
+    # Атмосферное свечение
+    glow_surf = pygame.Surface((er * 2 + 16, er * 2 + 16), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (80, 160, 255, 45), (er + 8, er + 8), er + 4)
+    screen.blit(glow_surf, (ex - er - 8, ey - er - 8))
+
+    # Поверхность океана
+    earth_surf = pygame.Surface((er * 2, er * 2), pygame.SRCALPHA)
+    pygame.draw.circle(earth_surf, (30, 85, 195), (er, er), er)
+
+    # Зеленые материки
+    pygame.draw.circle(earth_surf, (45, 140, 75), (er - 10, er - 8), 15)
+    pygame.draw.circle(earth_surf, (45, 140, 75), (er + 12, er + 10), 14)
+    pygame.draw.circle(earth_surf, (40, 125, 65), (er - 2, er + 14), 10)
+
+    # Белые вихри облаков
+    pygame.draw.ellipse(earth_surf, (240, 245, 255, 200), (er - 16, er - 14, 22, 9))
+    pygame.draw.ellipse(earth_surf, (240, 245, 255, 180), (er - 4, er + 2, 26, 8))
+    pygame.draw.ellipse(earth_surf, (240, 245, 255, 190), (er + 4, er - 18, 16, 7))
+
+    # Мягкая естественная тень (терминатор) справа
+    shadow_surf = pygame.Surface((er * 2, er * 2), pygame.SRCALPHA)
+    for sx in range(er, er * 2):
+        alpha = int(190 * ((sx - er) / er))
+        pygame.draw.line(shadow_surf, (15, 15, 25, alpha), (sx, 0), (sx, er * 2))
+
+    # Маска круга для тени
+    mask_surf = pygame.Surface((er * 2, er * 2), pygame.SRCALPHA)
+    pygame.draw.circle(mask_surf, (255, 255, 255, 255), (er, er), er)
+    shadow_surf.blit(mask_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+
+    earth_surf.blit(shadow_surf, (0, 0))
+    screen.blit(earth_surf, (ex - er, ey - er))
 
 
 def draw_moon_surface(frame_count):
@@ -409,7 +436,7 @@ while running:
         if sec > 1:
             draw_dendy_text(f"ЗАПУСК ЧЕРЕЗ: {sec}", WIDTH // 2, 60, size=28, color=(255, 140, 0))
         else:
-            draw_dendy_text("ПУСК! 🚀", WIDTH // 2, 60, size=36, color=(255, 60, 60))
+            draw_dendy_text("ПОЕХАЛИ! ПУСК!", WIDTH // 2, 60, size=36, color=(255, 60, 60))
 
         if countdown_timer <= 0:
             state = "FLYING_UP"
