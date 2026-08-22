@@ -43,16 +43,15 @@ for y in range(0, HEIGHT - cube_size * 2, cube_size):
 platforms.append(pygame.Rect(160, 420, cube_size * 3, cube_size))
 platforms.append(pygame.Rect(520, 320, cube_size * 2, cube_size))
 
-# Космонавт
-cosmo_x = 180
-cosmo_y = HEIGHT - cube_size - 24
-cosmo_w = 14
-cosmo_h = 24
+# Увеличенный космонавт (высота 36px)
+cosmo_h = 36
+cosmo_w = 20
+cosmo_x = 160
+cosmo_y = HEIGHT - cube_size - cosmo_h
 cosmo_speed = 2.0
 cosmo_waving_timer = 0
 
-# Состояние миссии:
-# "EARTH_READY" -> "COSMO_WALKING" -> "COUNTDOWN" -> "FLYING_UP" -> "MOON_DESCENDING" -> "COSMO_MOON_WALK" -> "LANDED"
+# Состояние миссии
 state = "EARTH_READY"
 countdown_timer = 0
 clock = pygame.time.Clock()
@@ -106,48 +105,65 @@ def draw_moon_surface(frame_count):
 
 
 def draw_flag(x, y):
-    pygame.draw.line(screen, (220, 220, 230), (x, y), (x, y - 50), 3)
-    flag_rect = (x, y - 50, 28, 18)
+    pygame.draw.line(screen, (220, 220, 230), (x, y), (x, y - 56), 3)
+    flag_rect = (x, y - 56, 32, 20)
     pygame.draw.rect(screen, (210, 30, 30), flag_rect)
-    pygame.draw.circle(screen, (255, 215, 0), (x + 8, y - 41), 3)
+    pygame.draw.circle(screen, (255, 215, 0), (x + 9, y - 46), 4)
 
 
 def draw_cosmonaut(x, y, frame_count, is_walking=False, waving=False, facing_right=True):
-    # Рюкзак жизнеобеспечения
-    backpack_x = x - 4 if facing_right else x + 10
-    pygame.draw.rect(screen, (180, 180, 190), (backpack_x, y + 6, 5, 12))
+    # Рюкзак жизнеобеспечения (крупный)
+    backpack_x = x - 6 if facing_right else x + 16
+    pygame.draw.rect(screen, (180, 180, 195), (backpack_x, y + 10, 7, 18))
+    pygame.draw.rect(screen, (70, 70, 80), (backpack_x, y + 10, 7, 18), width=1)
 
     # Скафандр (тело)
-    pygame.draw.rect(screen, (245, 245, 250), (x, y + 6, 12, 11))
-    pygame.draw.rect(screen, (60, 60, 70), (x, y + 6, 12, 11), width=1)
-    # Красная полоса на груди
-    pygame.draw.rect(screen, (220, 40, 40), (x + 2, y + 10, 8, 2))
+    pygame.draw.rect(screen, (245, 245, 250), (x, y + 10, 17, 16))
+    pygame.draw.rect(screen, (60, 60, 70), (x, y + 10, 17, 16), width=1)
 
-    # Шлем
-    pygame.draw.circle(screen, (245, 245, 250), (x + 6, y + 4), 6)
-    pygame.draw.circle(screen, (60, 60, 70), (x + 6, y + 4), 6, width=1)
-    # Забрало шлема
-    visor_x = x + 4 if facing_right else x + 2
-    pygame.draw.rect(screen, CYAN_GLASS, (visor_x, y + 2, 6, 4))
+    # Красная полоса на скафандре и нашивка
+    pygame.draw.rect(screen, (220, 40, 40), (x + 2, y + 14, 13, 3))
+    pygame.draw.circle(screen, (70, 160, 240), (x + 5, y + 21), 2)  # панель приборов
+    pygame.draw.circle(screen, (255, 200, 40), (x + 11, y + 21), 2)
+
+    # Шлем (увеличенный круглый)
+    helmet_cx = x + 8
+    helmet_cy = y + 7
+    pygame.draw.circle(screen, (245, 245, 250), (helmet_cx, helmet_cy), 8)
+    pygame.draw.circle(screen, (60, 60, 70), (helmet_cx, helmet_cy), 8, width=1)
+
+    # Забрало шлема (стекло)
+    visor_x = x + 6 if facing_right else x + 2
+    pygame.draw.rect(screen, CYAN_GLASS, (visor_x, y + 4, 8, 6))
+    pygame.draw.rect(screen, (50, 80, 100), (visor_x, y + 4, 8, 6), width=1)
+    # Блик на стекле
+    pygame.draw.line(screen, (255, 255, 255), (visor_x + 1, y + 5), (visor_x + 3, y + 5), 1)
 
     # Руки
     if waving:
-        # Поднятая машущая рука
-        arm_wave_offset = int(math.sin(frame_count * 0.3) * 3)
-        pygame.draw.line(screen, (245, 245, 250), (x + 6, y + 8), (x + 12, y - 4 + arm_wave_offset), 3)
-        pygame.draw.circle(screen, (220, 40, 40), (x + 12, y - 4 + arm_wave_offset), 2)
+        # Анимация машущей руки
+        arm_wave_offset = int(math.sin(frame_count * 0.3) * 4)
+        pygame.draw.line(screen, (245, 245, 250), (x + 8, y + 12), (x + 18, y - 6 + arm_wave_offset), 4)
+        pygame.draw.circle(screen, (220, 40, 40), (x + 18, y - 6 + arm_wave_offset), 3)  # красная перчатка
     else:
-        arm_offset = int(math.sin(frame_count * 0.25) * 3) if is_walking else 0
-        pygame.draw.line(screen, (245, 245, 250), (x + 6, y + 8), (x + 6 + arm_offset, y + 15), 3)
+        arm_offset = int(math.sin(frame_count * 0.25) * 4) if is_walking else 0
+        pygame.draw.line(screen, (245, 245, 250), (x + 8, y + 12), (x + 8 + arm_offset, y + 22), 4)
+        pygame.draw.circle(screen, (220, 40, 40), (x + 8 + arm_offset, y + 23), 2)
 
-    # Ножки (анимация шагов)
+    # Ножки с ботинками (анимация шагов)
     if is_walking:
-        step = int(math.sin(frame_count * 0.3) * 4)
-        pygame.draw.line(screen, (245, 245, 250), (x + 3, y + 17), (x + 3 - step, y + 24), 3)
-        pygame.draw.line(screen, (245, 245, 250), (x + 9, y + 17), (x + 9 + step, y + 24), 3)
+        step = int(math.sin(frame_count * 0.3) * 5)
+        # Левая нога
+        pygame.draw.line(screen, (245, 245, 250), (x + 4, y + 26), (x + 4 - step, y + 34), 4)
+        pygame.draw.rect(screen, (70, 70, 80), (x + 2 - step, y + 33, 5, 3))
+        # Правая нога
+        pygame.draw.line(screen, (245, 245, 250), (x + 13, y + 26), (x + 13 + step, y + 34), 4)
+        pygame.draw.rect(screen, (70, 70, 80), (x + 11 + step, y + 33, 5, 3))
     else:
-        pygame.draw.line(screen, (245, 245, 250), (x + 3, y + 17), (x + 3, y + 24), 3)
-        pygame.draw.line(screen, (245, 245, 250), (x + 9, y + 17), (x + 9, y + 24), 3)
+        pygame.draw.line(screen, (245, 245, 250), (x + 4, y + 26), (x + 4, y + 34), 4)
+        pygame.draw.rect(screen, (70, 70, 80), (x + 2, y + 33, 5, 3))
+        pygame.draw.line(screen, (245, 245, 250), (x + 13, y + 26), (x + 13, y + 34), 4)
+        pygame.draw.rect(screen, (70, 70, 80), (x + 11, y + 33, 5, 3))
 
 
 def draw_rocket(x, y, is_thrusting=False, deploy_legs=False, hatch_open=False):
@@ -181,15 +197,15 @@ def draw_rocket(x, y, is_thrusting=False, deploy_legs=False, hatch_open=False):
     pygame.draw.circle(screen, (70, 70, 80), (x + rocket_w // 2, y + 36), 6)
     pygame.draw.circle(screen, CYAN_GLASS, (x + rocket_w // 2, y + 36), 4)
 
-    # Входной люк
+    # Входной люк (увеличен под нового космонавта)
     hatch_color = (60, 180, 80) if hatch_open else (90, 90, 100)
-    pygame.draw.rect(screen, hatch_color, (x + 10, y + 58, 12, 18))
-    pygame.draw.rect(screen, (50, 50, 60), (x + 10, y + 58, 12, 18), width=1)
+    pygame.draw.rect(screen, hatch_color, (x + 8, y + 54, 16, 22))
+    pygame.draw.rect(screen, (50, 50, 60), (x + 8, y + 54, 16, 22), width=1)
 
     # 7. Надпись "СОЮЗ М"
     font_soiuz = pygame.font.SysFont("Arial", 8, bold=True)
     text_soiuz = font_soiuz.render("СОЮЗ М", True, (40, 40, 50))
-    screen.blit(text_soiuz, (x + 23, y + 62))
+    screen.blit(text_soiuz, (x + 25, y + 60))
 
     # 8. Сопла
     pygame.draw.rect(screen, (70, 70, 80), (x + 8, y + rocket_h - 8, rocket_w - 16, 8))
@@ -234,8 +250,8 @@ while running:
             elif event.key == pygame.K_r and state == "LANDED":
                 state = "EARTH_READY"
                 rocket_y = HEIGHT - rocket_h - 10
-                cosmo_x = 180
-                cosmo_y = HEIGHT - cube_size - 24
+                cosmo_x = 160
+                cosmo_y = HEIGHT - cube_size - cosmo_h
                 particles.clear()
 
     # === ЛОГИКА СОСТОЯНИЙ ===
@@ -247,14 +263,13 @@ while running:
 
     elif state == "COSMO_WALKING":
         draw_platforms()
-        hatch_x = rocket_x + 10
+        hatch_target_x = rocket_x + 8
 
-        if cosmo_x < hatch_x:
+        if cosmo_x < hatch_target_x:
             cosmo_x += cosmo_speed
             draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=True, waving=False, facing_right=True)
             draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
         else:
-            # Космонавт дошел до ракеты и машет рукой перед входом
             cosmo_waving_timer += 1
             draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
             draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=False, waving=True, facing_right=True)
@@ -268,10 +283,9 @@ while running:
     elif state == "COUNTDOWN":
         draw_platforms()
         countdown_timer -= 1
-        # Люк закрыт, космонавт внутри
         draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=False)
 
-        # Дым из двигателей перед стартом
+        # Дым перед стартом
         if random.random() < 0.6:
             particles.append({
                 'x': rocket_x + rocket_w // 2 + random.randint(-15, 15),
@@ -320,9 +334,8 @@ while running:
         if rocket_y >= target_land_y:
             rocket_y = target_land_y
             state = "COSMO_MOON_WALK"
-            cosmo_x = rocket_x + 10
-            cosmo_y = lunar_ground_y - 24
-            # Пыль от посадки
+            cosmo_x = rocket_x + 8
+            cosmo_y = lunar_ground_y - cosmo_h
             for _ in range(30):
                 particles.append({
                     'x': rocket_x + rocket_w // 2 + random.randint(-25, 25),
@@ -336,7 +349,6 @@ while running:
     elif state == "COSMO_MOON_WALK":
         draw_moon_surface(frame_count)
 
-        # Оседание пыли
         for p in particles:
             if p['life'] > 0:
                 p['x'] += p['vx']
@@ -352,7 +364,6 @@ while running:
             draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=True, waving=False, facing_right=True)
             draw_dendy_text("ВЫСАДКА НА ЛУНУ...", WIDTH // 2, 70, size=24, color=(100, 240, 130))
         else:
-            # Установка флага
             draw_flag(target_flag_x, lunar_ground_y - 4)
             draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=False, waving=True, facing_right=False)
             state = "LANDED"
@@ -361,7 +372,7 @@ while running:
         draw_moon_surface(frame_count)
         draw_rocket(rocket_x, int(rocket_y), is_thrusting=False, deploy_legs=True, hatch_open=True)
         draw_flag(rocket_x + rocket_w + 35, lunar_ground_y - 4)
-        draw_cosmonaut(rocket_x + rocket_w + 35, lunar_ground_y - 24, frame_count, is_walking=False, waving=True, facing_right=False)
+        draw_cosmonaut(rocket_x + rocket_w + 35, lunar_ground_y - cosmo_h, frame_count, is_walking=False, waving=True, facing_right=False)
 
         draw_dendy_text("СОЮЗ-М", WIDTH // 2, HEIGHT // 2 - 70, size=64, color=(255, 215, 0))
         draw_dendy_text("ПОСАДКА НА ЛУНУ УСПЕШНА!", WIDTH // 2, HEIGHT // 2, size=32, color=(100, 240, 130))
