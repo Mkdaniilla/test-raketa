@@ -402,7 +402,7 @@ async def main():
     global state, countdown_timer, mission_distance, score, fuel, clock, FPS
     global rocket_x, rocket_y, rocket_vx, rocket_vy
     global cosmo_x, cosmo_y, cosmo_waving_timer, rover_x, rover_y, rover_in_use
-    global frame_count, running
+    global frame_count, running, steam_particles
 
     frame_count = 0
     running = True
@@ -740,7 +740,7 @@ async def main():
                 draw_dendy_text(f"СОБРАНО КРИСТАЛЛОВ: {score} ✦", WIDTH // 2, HEIGHT // 2 + 25, size=22, color=GOLD)
                 draw_dendy_text("УПРАВЛЕНИЕ ЛУНОХОДОМ: [← / →]  |  [R] - ПОВТОР", WIDTH // 2, HEIGHT // 2 + 65, size=18, color=(200, 200, 220))
 
-            pygame.display.flip()
+        pygame.display.flip()
         await asyncio.sleep(0)
 
     pygame.quit()
