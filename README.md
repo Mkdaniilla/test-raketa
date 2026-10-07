@@ -4,6 +4,14 @@
 
 ---
 
+## 🌐 Играть онлайн прямо в браузере!
+
+Игра скомпилирована в WebAssembly и доступна онлайн по ссылке:  
+👉 **[https://mkdaniilla.github.io/test-raketa/](https://mkdaniilla.github.io/test-raketa/)**  
+*(работает прямо в браузере на компьютере без установки Python!)*
+
+---
+
 ## 🎮 Все этапы космической экспедиции
 
 1. **🏭 Этап 1 — Космодром на Земле:**
@@ -38,20 +46,11 @@
 
 ---
 
-## 📦 Установка и запуск
+## 📦 Установка и локальный запуск
 
-### 1. Клонирование репозитория
 ```bash
 git clone https://github.com/Mkdaniilla/test-raketa.git
 cd test-raketa
-```
-
-### 2. Установка зависимостей
-```bash
 pip install -r requirements.txt
-```
-
-### 3. Запуск игры
-```bash
 python main.py
 ```

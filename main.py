@@ -1,4 +1,5 @@
-﻿import pygame
+import asyncio
+import pygame
 import sys
 import math
 import random
@@ -397,343 +398,353 @@ def draw_hud():
     pygame.draw.rect(screen, (180, 180, 190), (635, 10, 140, 14), width=1)
 
 
-frame_count = 0
-running = True
-while running:
-    clock.tick(FPS)
-    frame_count += 1
-    screen.fill(BLACK_HAZARD)
+async def main():
+    global state, countdown_timer, mission_distance, score, fuel, clock, FPS
+    global rocket_x, rocket_y, rocket_vx, rocket_vy
+    global cosmo_x, cosmo_y, cosmo_waving_timer, rover_x, rover_y, rover_in_use
+    global frame_count, running
 
-    keys = pygame.key.get_pressed()
+    frame_count = 0
+    running = True
+    while running:
+        clock.tick(FPS)
+        frame_count += 1
+        screen.fill(BLACK_HAZARD)
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE and state == "EARTH_READY":
-                state = "COSMO_WALKING"
-                play_sfx(snd_beep)
-            elif event.key == pygame.K_r and state in ["LUNAR_ROAMING", "LANDED"]:
-                state = "EARTH_READY"
-                rocket_x = WIDTH // 2 - rocket_w // 2
-                rocket_y = pad_ground_y - rocket_h + 10
-                rocket_vx = 0.0
-                rocket_vy = 0.0
-                cosmo_x = 130
-                cosmo_y = pad_ground_y - cosmo_h
-                rover_in_use = False
-                mission_distance = 0.0
-                score = 0
-                fuel = 100.0
+        keys = pygame.key.get_pressed()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and state == "EARTH_READY":
+                    state = "COSMO_WALKING"
+                    play_sfx(snd_beep)
+                elif event.key == pygame.K_r and state in ["LUNAR_ROAMING", "LANDED"]:
+                    state = "EARTH_READY"
+                    rocket_x = WIDTH // 2 - rocket_w // 2
+                    rocket_y = pad_ground_y - rocket_h + 10
+                    rocket_vx = 0.0
+                    rocket_vy = 0.0
+                    cosmo_x = 130
+                    cosmo_y = pad_ground_y - cosmo_h
+                    rover_in_use = False
+                    mission_distance = 0.0
+                    score = 0
+                    fuel = 100.0
+                    particles.clear()
+                    steam_particles.clear()
+                    asteroids.clear()
+                    crystals.clear()
+                    fireworks.clear()
+
+        # === ЛОГИКА СОСТОЯНИЙ ===
+        if state == "EARTH_READY":
+            draw_cosmodrome(frame_count)
+
+            if random.random() < 0.25:
+                steam_particles.append({
+                    'x': rocket_x + 10 + random.choice([0, rocket_w - 20]),
+                    'y': rocket_y + 35,
+                    'vx': random.uniform(-0.8, -0.2) if random.random() < 0.5 else random.uniform(0.2, 0.8),
+                    'vy': random.uniform(-0.6, -0.1),
+                    'r': random.randint(2, 4),
+                    'alpha': 180
+                })
+
+            for s in steam_particles:
+                s['x'] += s['vx']
+                s['y'] += s['vy']
+                s['alpha'] -= 3
+                if s['alpha'] > 0:
+                    steam_surf = pygame.Surface((s['r']*2, s['r']*2), pygame.SRCALPHA)
+                    pygame.draw.circle(steam_surf, (220, 235, 255, s['alpha']), (s['r'], s['r']), s['r'])
+                    screen.blit(steam_surf, (int(s['x']), int(s['y'])))
+            steam_particles = [s for s in steam_particles if s['alpha'] > 0]
+
+            draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
+            draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=False, waving=False, facing_right=True)
+            draw_dendy_text("НАЖМИТЕ ПРОБЕЛ — ПОСАДКА И ПУСК!", WIDTH // 2, 60, size=24, color=(240, 240, 255))
+
+        elif state == "COSMO_WALKING":
+            draw_cosmodrome(frame_count)
+            hatch_target_x = rocket_x + 8
+
+            if cosmo_x < hatch_target_x:
+                cosmo_x += cosmo_speed
+                if frame_count % 14 == 0:
+                    play_sfx(snd_step)
+                draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=True, waving=False, facing_right=True)
+                draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
+            else:
+                cosmo_waving_timer += 1
+                draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
+                draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=False, waving=True, facing_right=True)
+                draw_dendy_text("ПОСАДКА В РАКЕТУ...", WIDTH // 2, 60, size=24, color=(255, 215, 0))
+
+                if cosmo_waving_timer > 60:
+                    state = "COUNTDOWN"
+                    countdown_timer = 90
+                    cosmo_waving_timer = 0
+                    play_sfx(snd_beep)
+
+        elif state == "COUNTDOWN":
+            draw_cosmodrome(frame_count)
+            countdown_timer -= 1
+            draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=False)
+
+            if random.random() < 0.8:
+                for _ in range(2):
+                    particles.append({
+                        'x': rocket_x + rocket_w // 2 + random.randint(-20, 20),
+                        'y': rocket_y + rocket_h - 4,
+                        'vx': random.uniform(-2.5, 2.5),
+                        'vy': random.uniform(0.2, 1.5),
+                        'r': random.randint(4, 10),
+                        'life': 35
+                    })
+
+            for p in particles:
+                if p['life'] > 0:
+                    p['x'] += p['vx']
+                    p['y'] += p['vy']
+                    p['life'] -= 1
+                    pygame.draw.circle(screen, (160, 160, 170), (int(p['x']), int(p['y'])), p['r'])
+
+            sec = (countdown_timer // 30) + 1
+            if sec > 1:
+                draw_dendy_text(f"ЗАПУСК ЧЕРЕЗ: {sec}", WIDTH // 2, 60, size=28, color=(255, 140, 0))
+                if countdown_timer % 30 == 0:
+                    play_sfx(snd_beep)
+            else:
+                draw_dendy_text("ПОЕХАЛИ! ПУСК!", WIDTH // 2, 60, size=36, color=(255, 60, 60))
+                if countdown_timer == 29:
+                    play_sfx(snd_launch)
+
+            if countdown_timer <= 0:
+                state = "SPACE_ARCADE"
                 particles.clear()
-                steam_particles.clear()
+                rocket_x = WIDTH // 2 - rocket_w // 2
+                rocket_y = HEIGHT - 140
+
+        elif state == "SPACE_ARCADE":
+            # Космический полёт сквозь астероиды
+            for s in space_stars:
+                s['y'] += s['speed']
+                if s['y'] > HEIGHT:
+                    s['y'] = 0
+                    s['x'] = random.randint(0, WIDTH)
+                pygame.draw.circle(screen, (220, 220, 240), (int(s['x']), int(s['y'])), s['r'])
+
+            # Управление ракетой в космосе
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                rocket_x -= 5
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                rocket_x += 5
+            rocket_x = max(20, min(WIDTH - rocket_w - 20, rocket_x))
+
+            # Генерация астероидов
+            if random.random() < 0.04 and len(asteroids) < 5:
+                asteroids.append({
+                    'x': random.randint(40, WIDTH - 80),
+                    'y': -40,
+                    'r': random.randint(16, 26),
+                    'speed': random.uniform(3.0, 5.0),
+                    'rot': random.uniform(0, 360)
+                })
+
+            # Генерация кристаллов
+            if random.random() < 0.03 and len(crystals) < 4:
+                crystals.append({
+                    'x': random.randint(50, WIDTH - 70),
+                    'y': -30,
+                    'speed': 3.5
+                })
+
+            # Отрисовка и движение астероидов
+            for a in asteroids[:]:
+                a['y'] += a['speed']
+                pygame.draw.circle(screen, (110, 105, 115), (int(a['x']), int(a['y'])), a['r'])
+                pygame.draw.circle(screen, (70, 65, 75), (int(a['x']), int(a['y'])), a['r'], width=2)
+                pygame.draw.circle(screen, (80, 75, 85), (int(a['x'] - 4), int(a['y'] - 3)), a['r'] // 3)
+
+                # Проверка столкновения
+                rocket_rect = pygame.Rect(rocket_x, rocket_y, rocket_w, rocket_h)
+                if rocket_rect.collidepoint(a['x'], a['y']):
+                    fuel = max(0.0, fuel - 0.4)  # трата топлива при задевании
+
+                if a['y'] > HEIGHT + 50:
+                    asteroids.remove(a)
+
+            # Отрисовка кристаллов
+            for c in crystals[:]:
+                c['y'] += c['speed']
+                cx, cy = int(c['x']), int(c['y'])
+                # Золотой ромб кристалла
+                pts = [(cx, cy - 8), (cx + 7, cy), (cx, cy + 8), (cx - 7, cy)]
+                pygame.draw.polygon(screen, GOLD, pts)
+                pygame.draw.polygon(screen, WHITE, pts, width=1)
+
+                rocket_rect = pygame.Rect(rocket_x, rocket_y, rocket_w, rocket_h)
+                if rocket_rect.collidepoint(cx, cy):
+                    score += 10
+                    play_sfx(snd_coin)
+                    crystals.remove(c)
+                elif c['y'] > HEIGHT + 40:
+                    crystals.remove(c)
+
+            draw_rocket(rocket_x, rocket_y, is_thrusting=True, deploy_legs=False, hatch_open=False)
+
+            # Прогресс полета
+            mission_distance += 0.25
+            draw_hud()
+
+            if mission_distance >= 100.0:
+                state = "LUNAR_LANDING"
+                rocket_x = WIDTH // 2 - rocket_w // 2
+                rocket_y = -rocket_h
+                rocket_vy = 1.0
                 asteroids.clear()
                 crystals.clear()
-                fireworks.clear()
 
-    # === ЛОГИКА СОСТОЯНИЙ ===
-    if state == "EARTH_READY":
-        draw_cosmodrome(frame_count)
+        elif state == "LUNAR_LANDING":
+            # Ручная посадка на Луну (Lunar Lander)
+            draw_moon_surface(frame_count)
 
-        if random.random() < 0.25:
-            steam_particles.append({
-                'x': rocket_x + 10 + random.choice([0, rocket_w - 20]),
-                'y': rocket_y + 35,
-                'vx': random.uniform(-0.8, -0.2) if random.random() < 0.5 else random.uniform(0.2, 0.8),
-                'vy': random.uniform(-0.6, -0.1),
-                'r': random.randint(2, 4),
-                'alpha': 180
-            })
+            is_thrust = False
+            if (keys[pygame.K_UP] or keys[pygame.K_SPACE] or keys[pygame.K_w]) and fuel > 0:
+                rocket_vy -= 0.12
+                fuel = max(0.0, fuel - 0.18)
+                is_thrust = True
 
-        for s in steam_particles:
-            s['x'] += s['vx']
-            s['y'] += s['vy']
-            s['alpha'] -= 3
-            if s['alpha'] > 0:
-                steam_surf = pygame.Surface((s['r']*2, s['r']*2), pygame.SRCALPHA)
-                pygame.draw.circle(steam_surf, (220, 235, 255, s['alpha']), (s['r'], s['r']), s['r'])
-                screen.blit(steam_surf, (int(s['x']), int(s['y'])))
-        steam_particles = [s for s in steam_particles if s['alpha'] > 0]
+            if (keys[pygame.K_LEFT] or keys[pygame.K_a]) and fuel > 0:
+                rocket_vx -= 0.08
+                fuel = max(0.0, fuel - 0.05)
+            if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) and fuel > 0:
+                rocket_vx += 0.08
+                fuel = max(0.0, fuel - 0.05)
 
-        draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
-        draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=False, waving=False, facing_right=True)
-        draw_dendy_text("НАЖМИТЕ ПРОБЕЛ — ПОСАДКА И ПУСК!", WIDTH // 2, 60, size=24, color=(240, 240, 255))
+            # Гравитация Луны
+            rocket_vy += 0.04
+            rocket_x += rocket_vx
+            rocket_y += rocket_vy
+            rocket_vx *= 0.98
 
-    elif state == "COSMO_WALKING":
-        draw_cosmodrome(frame_count)
-        hatch_target_x = rocket_x + 8
+            rocket_x = max(20, min(WIDTH - rocket_w - 20, rocket_x))
 
-        if cosmo_x < hatch_target_x:
-            cosmo_x += cosmo_speed
-            if frame_count % 14 == 0:
-                play_sfx(snd_step)
-            draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=True, waving=False, facing_right=True)
-            draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
-        else:
-            cosmo_waving_timer += 1
-            draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=True)
-            draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=False, waving=True, facing_right=True)
-            draw_dendy_text("ПОСАДКА В РАКЕТУ...", WIDTH // 2, 60, size=24, color=(255, 215, 0))
+            target_land_y = lunar_ground_y - rocket_h - 6
+            deploy_legs = (rocket_y > 150)
 
-            if cosmo_waving_timer > 60:
-                state = "COUNTDOWN"
-                countdown_timer = 90
-                cosmo_waving_timer = 0
-                play_sfx(snd_beep)
+            draw_rocket(int(rocket_x), int(rocket_y), is_thrusting=is_thrust, deploy_legs=deploy_legs, hatch_open=False)
+            draw_hud()
 
-    elif state == "COUNTDOWN":
-        draw_cosmodrome(frame_count)
-        countdown_timer -= 1
-        draw_rocket(rocket_x, rocket_y, is_thrusting=False, deploy_legs=False, hatch_open=False)
+            draw_dendy_text("РУЧНАЯ ПОСАДКА: [ПРОБЕЛ / СТРЕЛКИ]", WIDTH // 2, 60, size=20, color=(160, 230, 255))
 
-        if random.random() < 0.8:
-            for _ in range(2):
-                particles.append({
-                    'x': rocket_x + rocket_w // 2 + random.randint(-20, 20),
-                    'y': rocket_y + rocket_h - 4,
-                    'vx': random.uniform(-2.5, 2.5),
-                    'vy': random.uniform(0.2, 1.5),
-                    'r': random.randint(4, 10),
-                    'life': 35
-                })
-
-        for p in particles:
-            if p['life'] > 0:
-                p['x'] += p['vx']
-                p['y'] += p['vy']
-                p['life'] -= 1
-                pygame.draw.circle(screen, (160, 160, 170), (int(p['x']), int(p['y'])), p['r'])
-
-        sec = (countdown_timer // 30) + 1
-        if sec > 1:
-            draw_dendy_text(f"ЗАПУСК ЧЕРЕЗ: {sec}", WIDTH // 2, 60, size=28, color=(255, 140, 0))
-            if countdown_timer % 30 == 0:
-                play_sfx(snd_beep)
-        else:
-            draw_dendy_text("ПОЕХАЛИ! ПУСК!", WIDTH // 2, 60, size=36, color=(255, 60, 60))
-            if countdown_timer == 29:
-                play_sfx(snd_launch)
-
-        if countdown_timer <= 0:
-            state = "SPACE_ARCADE"
-            particles.clear()
-            rocket_x = WIDTH // 2 - rocket_w // 2
-            rocket_y = HEIGHT - 140
-
-    elif state == "SPACE_ARCADE":
-        # Космический полёт сквозь астероиды
-        for s in space_stars:
-            s['y'] += s['speed']
-            if s['y'] > HEIGHT:
-                s['y'] = 0
-                s['x'] = random.randint(0, WIDTH)
-            pygame.draw.circle(screen, (220, 220, 240), (int(s['x']), int(s['y'])), s['r'])
-
-        # Управление ракетой в космосе
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            rocket_x -= 5
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            rocket_x += 5
-        rocket_x = max(20, min(WIDTH - rocket_w - 20, rocket_x))
-
-        # Генерация астероидов
-        if random.random() < 0.04 and len(asteroids) < 5:
-            asteroids.append({
-                'x': random.randint(40, WIDTH - 80),
-                'y': -40,
-                'r': random.randint(16, 26),
-                'speed': random.uniform(3.0, 5.0),
-                'rot': random.uniform(0, 360)
-            })
-
-        # Генерация кристаллов
-        if random.random() < 0.03 and len(crystals) < 4:
-            crystals.append({
-                'x': random.randint(50, WIDTH - 70),
-                'y': -30,
-                'speed': 3.5
-            })
-
-        # Отрисовка и движение астероидов
-        for a in asteroids[:]:
-            a['y'] += a['speed']
-            pygame.draw.circle(screen, (110, 105, 115), (int(a['x']), int(a['y'])), a['r'])
-            pygame.draw.circle(screen, (70, 65, 75), (int(a['x']), int(a['y'])), a['r'], width=2)
-            pygame.draw.circle(screen, (80, 75, 85), (int(a['x'] - 4), int(a['y'] - 3)), a['r'] // 3)
-
-            # Проверка столкновения
-            rocket_rect = pygame.Rect(rocket_x, rocket_y, rocket_w, rocket_h)
-            if rocket_rect.collidepoint(a['x'], a['y']):
-                fuel = max(0.0, fuel - 0.4)  # трата топлива при задевании
-
-            if a['y'] > HEIGHT + 50:
-                asteroids.remove(a)
-
-        # Отрисовка кристаллов
-        for c in crystals[:]:
-            c['y'] += c['speed']
-            cx, cy = int(c['x']), int(c['y'])
-            # Золотой ромб кристалла
-            pts = [(cx, cy - 8), (cx + 7, cy), (cx, cy + 8), (cx - 7, cy)]
-            pygame.draw.polygon(screen, GOLD, pts)
-            pygame.draw.polygon(screen, WHITE, pts, width=1)
-
-            rocket_rect = pygame.Rect(rocket_x, rocket_y, rocket_w, rocket_h)
-            if rocket_rect.collidepoint(cx, cy):
-                score += 10
-                play_sfx(snd_coin)
-                crystals.remove(c)
-            elif c['y'] > HEIGHT + 40:
-                crystals.remove(c)
-
-        draw_rocket(rocket_x, rocket_y, is_thrusting=True, deploy_legs=False, hatch_open=False)
-
-        # Прогресс полета
-        mission_distance += 0.25
-        draw_hud()
-
-        if mission_distance >= 100.0:
-            state = "LUNAR_LANDING"
-            rocket_x = WIDTH // 2 - rocket_w // 2
-            rocket_y = -rocket_h
-            rocket_vy = 1.0
-            asteroids.clear()
-            crystals.clear()
-
-    elif state == "LUNAR_LANDING":
-        # Ручная посадка на Луну (Lunar Lander)
-        draw_moon_surface(frame_count)
-
-        is_thrust = False
-        if (keys[pygame.K_UP] or keys[pygame.K_SPACE] or keys[pygame.K_w]) and fuel > 0:
-            rocket_vy -= 0.12
-            fuel = max(0.0, fuel - 0.18)
-            is_thrust = True
-
-        if (keys[pygame.K_LEFT] or keys[pygame.K_a]) and fuel > 0:
-            rocket_vx -= 0.08
-            fuel = max(0.0, fuel - 0.05)
-        if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) and fuel > 0:
-            rocket_vx += 0.08
-            fuel = max(0.0, fuel - 0.05)
-
-        # Гравитация Луны
-        rocket_vy += 0.04
-        rocket_x += rocket_vx
-        rocket_y += rocket_vy
-        rocket_vx *= 0.98
-
-        rocket_x = max(20, min(WIDTH - rocket_w - 20, rocket_x))
-
-        target_land_y = lunar_ground_y - rocket_h - 6
-        deploy_legs = (rocket_y > 150)
-
-        draw_rocket(int(rocket_x), int(rocket_y), is_thrusting=is_thrust, deploy_legs=deploy_legs, hatch_open=False)
-        draw_hud()
-
-        draw_dendy_text("РУЧНАЯ ПОСАДКА: [ПРОБЕЛ / СТРЕЛКИ]", WIDTH // 2, 60, size=20, color=(160, 230, 255))
-
-        if rocket_y >= target_land_y:
-            rocket_y = target_land_y
-            state = "ROVER_DEPLOY"
-            play_sfx(snd_pop)
-            # Начальные координаты Лунохода и космонавта
-            rover_x = rocket_x + rocket_w + 10
-            rover_y = lunar_ground_y - rover_h + 2
-            cosmo_x = rocket_x + 8
-            cosmo_y = lunar_ground_y - cosmo_h
-
-            for _ in range(30):
-                particles.append({
-                    'x': rocket_x + rocket_w // 2 + random.randint(-25, 25),
-                    'y': lunar_ground_y - 2,
-                    'vx': random.uniform(-2.5, 2.5),
-                    'vy': random.uniform(-1.5, -0.2),
-                    'r': random.randint(3, 7),
-                    'life': random.randint(25, 50)
-                })
-
-    elif state in ["ROVER_DEPLOY", "LUNAR_ROAMING"]:
-        draw_moon_surface(frame_count)
-
-        # Оседание пыли
-        for p in particles:
-            if p['life'] > 0:
-                p['x'] += p['vx']
-                p['y'] += p['vy']
-                p['life'] -= 1
-                pygame.draw.circle(screen, (160, 160, 175), (int(p['x']), int(p['y'])), p['r'])
-
-        draw_rocket(rocket_x, int(rocket_y), is_thrusting=False, deploy_legs=True, hatch_open=True)
-
-        # Выдвижной пандус из ракеты для Лунохода
-        pygame.draw.line(screen, (180, 185, 195), (rocket_x + rocket_w - 6, rocket_y + rocket_h - 12), (rocket_x + rocket_w + 24, lunar_ground_y), 4)
-
-        # Установленный флаг
-        draw_flag(rocket_x - 45, lunar_ground_y - 4)
-
-        if state == "ROVER_DEPLOY":
-            # Космонавт выходит и идет к Луноходу
-            if cosmo_x < rover_x + 12:
-                cosmo_x += 1.2
-                draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=True, waving=False, facing_right=True)
-                draw_lunokhod(rover_x, rover_y, facing_right=True)
-                draw_dendy_text("ВЫГРУЗКА ЛУНОХОДА-1...", WIDTH // 2, 60, size=24, color=(100, 240, 130))
-            else:
-                state = "LUNAR_ROAMING"
-                rover_in_use = True
-                play_sfx(snd_coin)
-
-        elif state == "LUNAR_ROAMING":
-            # Управление Луноходом по лунной поверхности!
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                rover_x -= 3
-                facing = False
-            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                rover_x += 3
-                facing = True
-            else:
-                facing = True
-
-            rover_x = max(20, min(WIDTH - rover_w - 20, rover_x))
-            draw_lunokhod(rover_x, rover_y, facing_right=facing)
-            # Космонавт сидит в Луноходе
-            draw_cosmonaut(rover_x + 16, rover_y - 12, frame_count, is_walking=False, waving=True, facing_right=facing)
-
-            # Праздничный салют над Луной!
-            if random.random() < 0.08:
-                fx = random.randint(80, WIDTH - 80)
-                fy = random.randint(60, 240)
-                f_color = random.choice([(255, 80, 80), (255, 220, 50), (80, 220, 255), (100, 255, 120), (255, 120, 240)])
-                for _ in range(18):
-                    ang = random.uniform(0, math.pi * 2)
-                    spd = random.uniform(1.2, 4.0)
-                    fireworks.append({
-                        'x': fx,
-                        'y': fy,
-                        'vx': math.cos(ang) * spd,
-                        'vy': math.sin(ang) * spd,
-                        'color': f_color,
-                        'life': random.randint(20, 40)
-                    })
+            if rocket_y >= target_land_y:
+                rocket_y = target_land_y
+                state = "ROVER_DEPLOY"
                 play_sfx(snd_pop)
+                # Начальные координаты Лунохода и космонавта
+                rover_x = rocket_x + rocket_w + 10
+                rover_y = lunar_ground_y - rover_h + 2
+                cosmo_x = rocket_x + 8
+                cosmo_y = lunar_ground_y - cosmo_h
 
-            for fw in fireworks[:]:
-                fw['x'] += fw['vx']
-                fw['y'] += fw['vy']
-                fw['life'] -= 1
-                if fw['life'] > 0:
-                    pygame.draw.circle(screen, fw['color'], (int(fw['x']), int(fw['y'])), 2)
+                for _ in range(30):
+                    particles.append({
+                        'x': rocket_x + rocket_w // 2 + random.randint(-25, 25),
+                        'y': lunar_ground_y - 2,
+                        'vx': random.uniform(-2.5, 2.5),
+                        'vy': random.uniform(-1.5, -0.2),
+                        'r': random.randint(3, 7),
+                        'life': random.randint(25, 50)
+                    })
+
+        elif state in ["ROVER_DEPLOY", "LUNAR_ROAMING"]:
+            draw_moon_surface(frame_count)
+
+            # Оседание пыли
+            for p in particles:
+                if p['life'] > 0:
+                    p['x'] += p['vx']
+                    p['y'] += p['vy']
+                    p['life'] -= 1
+                    pygame.draw.circle(screen, (160, 160, 175), (int(p['x']), int(p['y'])), p['r'])
+
+            draw_rocket(rocket_x, int(rocket_y), is_thrusting=False, deploy_legs=True, hatch_open=True)
+
+            # Выдвижной пандус из ракеты для Лунохода
+            pygame.draw.line(screen, (180, 185, 195), (rocket_x + rocket_w - 6, rocket_y + rocket_h - 12), (rocket_x + rocket_w + 24, lunar_ground_y), 4)
+
+            # Установленный флаг
+            draw_flag(rocket_x - 45, lunar_ground_y - 4)
+
+            if state == "ROVER_DEPLOY":
+                # Космонавт выходит и идет к Луноходу
+                if cosmo_x < rover_x + 12:
+                    cosmo_x += 1.2
+                    draw_cosmonaut(cosmo_x, cosmo_y, frame_count, is_walking=True, waving=False, facing_right=True)
+                    draw_lunokhod(rover_x, rover_y, facing_right=True)
+                    draw_dendy_text("ВЫГРУЗКА ЛУНОХОДА-1...", WIDTH // 2, 60, size=24, color=(100, 240, 130))
                 else:
-                    fireworks.remove(fw)
+                    state = "LUNAR_ROAMING"
+                    rover_in_use = True
+                    play_sfx(snd_coin)
 
-            # Победные титры
-            draw_dendy_text("СОЮЗ-М & ЛУНОХОД-1", WIDTH // 2, HEIGHT // 2 - 80, size=52, color=(255, 215, 0))
-            draw_dendy_text("МИССИЯ УСПЕШНО ВЫПОЛНЕНА!", WIDTH // 2, HEIGHT // 2 - 20, size=28, color=(100, 240, 130))
-            draw_dendy_text(f"СОБРАНО КРИСТАЛЛОВ: {score} ✦", WIDTH // 2, HEIGHT // 2 + 25, size=22, color=GOLD)
-            draw_dendy_text("УПРАВЛЕНИЕ ЛУНОХОДОМ: [← / →]  |  [R] - ПОВТОР", WIDTH // 2, HEIGHT // 2 + 65, size=18, color=(200, 200, 220))
+            elif state == "LUNAR_ROAMING":
+                # Управление Луноходом по лунной поверхности!
+                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                    rover_x -= 3
+                    facing = False
+                elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                    rover_x += 3
+                    facing = True
+                else:
+                    facing = True
 
-    pygame.display.flip()
+                rover_x = max(20, min(WIDTH - rover_w - 20, rover_x))
+                draw_lunokhod(rover_x, rover_y, facing_right=facing)
+                # Космонавт сидит в Луноходе
+                draw_cosmonaut(rover_x + 16, rover_y - 12, frame_count, is_walking=False, waving=True, facing_right=facing)
 
-pygame.quit()
-sys.exit()
+                # Праздничный салют над Луной!
+                if random.random() < 0.08:
+                    fx = random.randint(80, WIDTH - 80)
+                    fy = random.randint(60, 240)
+                    f_color = random.choice([(255, 80, 80), (255, 220, 50), (80, 220, 255), (100, 255, 120), (255, 120, 240)])
+                    for _ in range(18):
+                        ang = random.uniform(0, math.pi * 2)
+                        spd = random.uniform(1.2, 4.0)
+                        fireworks.append({
+                            'x': fx,
+                            'y': fy,
+                            'vx': math.cos(ang) * spd,
+                            'vy': math.sin(ang) * spd,
+                            'color': f_color,
+                            'life': random.randint(20, 40)
+                        })
+                    play_sfx(snd_pop)
+
+                for fw in fireworks[:]:
+                    fw['x'] += fw['vx']
+                    fw['y'] += fw['vy']
+                    fw['life'] -= 1
+                    if fw['life'] > 0:
+                        pygame.draw.circle(screen, fw['color'], (int(fw['x']), int(fw['y'])), 2)
+                    else:
+                        fireworks.remove(fw)
+
+                # Победные титры
+                draw_dendy_text("СОЮЗ-М & ЛУНОХОД-1", WIDTH // 2, HEIGHT // 2 - 80, size=52, color=(255, 215, 0))
+                draw_dendy_text("МИССИЯ УСПЕШНО ВЫПОЛНЕНА!", WIDTH // 2, HEIGHT // 2 - 20, size=28, color=(100, 240, 130))
+                draw_dendy_text(f"СОБРАНО КРИСТАЛЛОВ: {score} ✦", WIDTH // 2, HEIGHT // 2 + 25, size=22, color=GOLD)
+                draw_dendy_text("УПРАВЛЕНИЕ ЛУНОХОДОМ: [← / →]  |  [R] - ПОВТОР", WIDTH // 2, HEIGHT // 2 + 65, size=18, color=(200, 200, 220))
+
+            pygame.display.flip()
+        await asyncio.sleep(0)
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    asyncio.run(main())
