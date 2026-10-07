@@ -1,17 +1,17 @@
-﻿name: Deploy Pygame to GitHub Pages
+name: Build and deploy game to GitHub Pages
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -24,25 +24,35 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
-      - name: Install Pygbag
-        run: |
-          python -m pip install --upgrade pip
-          pip install pygbag
+      - name: Install game and web build dependencies
+        run: python -m pip install -r requirements.txt pygbag==0.9.3
+
+      - name: Test mission rendering and controls
+        run: python -m unittest discover -s tests -v
 
       - name: Build WebAssembly with Pygbag
         run: |
-          python -m pygbag --build --archive main.py || python -m pygbag --build main.py
+          mkdir -p web-src
+          cp main.py web-src/main.py
+          python -m pygbag --build web-src
+          test -s web-src/build/web/index.html
+          test -s web-src/build/web/web-src.apk
 
       - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: web-src/build/web
 
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
